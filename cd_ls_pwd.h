@@ -30,7 +30,7 @@ extern char line[256], cmd[32], pathname[256];
 int ls_file(int ino);
 int ls_dir(char *dirname);
 int ls(char *pathname);
-int chdir(char *pathname);
+int mychdir(char *pathname);
 int rpwd(MINODE *wd);
 int pwd(MINODE *wd);
 

@@ -10,6 +10,7 @@
 #include <string.h>
 #include <libgen.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "type.h"
 
@@ -28,8 +29,8 @@ extern char line[256], cmd[32], pathname[256];
 int get_block(int dev, int blk, char *buf);
 int put_block(int dev, int blk, char *buf);
 int get_indirect(int dev, int i_blk, int blk, char *buf);
-int get_double_indirect(int dev, int di_blk int i_blk, int blk, char *buf);
-int get_triple_indirect(int dev, int ti_blk, int di_blk int i_blk, int blk, char *buf);
+int get_double_indirect(int dev, int di_blk, int i_blk, int blk, char *buf);
+int get_triple_indirect(int dev, int ti_blk, int di_blk, int i_blk, int blk, char *buf);
 int tokenize(char *pathname);
 MINODE *iget(int dev, int ino);
 int iput(MINODE *mip);

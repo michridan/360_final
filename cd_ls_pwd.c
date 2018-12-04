@@ -55,7 +55,7 @@ int ls_dir(char *dirname)
 	}
 	else
 	{
-		ino = getino1(dirname);
+		ino = getino(dirname);
 		mip = iget(dev, ino);
 	}
 
@@ -95,7 +95,7 @@ int ls(char *name)
 	}
 	else
 	{
-		ino = getino1(name);
+		ino = getino(name);
 		mip = iget(dev, ino);
 		check = mip->INODE;
 	}
@@ -114,7 +114,7 @@ int ls(char *name)
 	return 1;
 }
 
-int chdir(char *pathname)
+int mychdir(char *pathname)
 {
 	if(!strcmp(pathname, ""))
 	{
@@ -129,7 +129,7 @@ int chdir(char *pathname)
     (4).  iput(running->cwd);
 	(5).  running->cwd = mip;
 	*/
-	int ino = getino1(pathname);
+	int ino = getino(pathname);
 	MINODE *mip = iget(dev, ino);
 
 	if(S_ISDIR(mip->INODE.i_mode))

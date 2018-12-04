@@ -120,7 +120,7 @@ MINODE *iget(int dev, int ino)
 		if(minode[i].refCount > 0 && (minode[i].dev == dev && minode[i].ino == ino))
 		{
 			minode[i].refCount++;
-			return minode[i];
+			return &minode[i];
 		}
 	}
 
@@ -159,9 +159,9 @@ int iput(MINODE *mip) // dispose a used minode by mip
 	mip->refCount--;
  
 	if (mip->refCount > 0) 
-		return;
+		return 0;
 	if (!mip->dirty)       
-		return;
+		return 0;
  
 	// Write YOUR CODE to write mip->INODE back to disk
 	blk = (mip->ino - 1) / 8 + inode_start;
@@ -187,7 +187,7 @@ int search_block(char *buf, char *name)
 		strncpy(temp, dp->name, dp->name_len);
 	    temp[dp->name_len] = 0;
 
-		if(!strcmp(temp, target))
+		if(!strcmp(temp, name))
 			return dp->inode;
 	    cp += dp->rec_len;
 		dp = (DIR *)cp;	   
@@ -361,7 +361,7 @@ int findmyname(MINODE *parent, u32 myino, char *myname)
 			break;
 		get_block(dev, mip->INODE.i_block[i], buf);
 
-		if (ino = findmyname_block(buf, myname))
+		if (ino = findmyname_block(buf, myino, myname))
 			return ino;
 	}
 
@@ -373,7 +373,7 @@ int findmyname(MINODE *parent, u32 myino, char *myname)
 	{
 		if(get_indirect(dev, mip->INODE.i_block[12], i, buf))
 		{
-			if(ino = findmyname_block(buf, myname))
+			if(ino = findmyname_block(buf, myino, myname))
 				return ino;
 		}
 		else
@@ -390,7 +390,7 @@ int findmyname(MINODE *parent, u32 myino, char *myname)
 		{
 			if(get_double_indirect(dev, mip->INODE.i_block[13], i, j, buf))
 			{
-				if(ino = findmyname_block(buf, myname))
+				if(ino = findmyname_block(buf, myino, myname))
 					return ino;
 			}
 			else
@@ -410,7 +410,7 @@ int findmyname(MINODE *parent, u32 myino, char *myname)
 			{
 				if(get_triple_indirect(dev, mip->INODE.i_block[14], i, j, k, buf))
 				{
-					if(ino = findmyname_block(buf, myname))
+					if(ino = findmyname_block(buf, myino, myname))
 						return ino;
 				}
 				else

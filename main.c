@@ -176,7 +176,7 @@ int main(int argc, char *argv[ ])
     if (strcmp(cmd, "ls")==0)
        ls(pathname);
 	else if (strcmp(cmd, "cd")==0)
-       chdir(pathname);
+       mychdir(pathname);
 	else if (strcmp(cmd, "pwd")==0)
 	{
        pwd(running->cwd);
