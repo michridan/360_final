@@ -25,14 +25,14 @@ extern char line[256], cmd[32], pathname[256];
 
 int get_block(int dev, int blk, char *buf)
 {
-	lseek(fd, (long)blk*BLKSIZE, 0);
-	read(fd, buf, BLKSIZE);
+	lseek(dev, blk*BLKSIZE, 0);
+	return (read(dev, buf, BLKSIZE) < 0) ? 0 : 1;
 }   
 
 int put_block(int dev, int blk, char *buf)
 {
-	lseek(fd, (long)blk*BLKSIZE, 0);
-	write(fd, buf, BLKSIZE);
+	lseek(dev, blk*BLKSIZE, 0);
+	return (write(dev, buf, BLKSIZE) != BLKSIZE) ? 0 : 1;
 }   
 
 /*
@@ -140,7 +140,7 @@ MINODE *iget(int dev, int ino)
     blk    = (ino-1) / 8 + inode_start;
     offset = (ino-1) % 8;
 
-    printf("iget: ino=%d blk=%d offset=%d\n", ino, blk, offset);
+//  printf("iget: ino=%d blk=%d offset=%d\n", ino, blk, offset);
 
     get_block(dev, blk, buf);
     ip = (INODE *)buf + offset;
@@ -159,9 +159,9 @@ int iput(MINODE *mip) // dispose a used minode by mip
 	mip->refCount--;
  
 	if (mip->refCount > 0) 
-		return 0;
+		return;
 	if (!mip->dirty)       
-		return 0;
+		return;
  
 	// Write YOUR CODE to write mip->INODE back to disk
 	blk = (mip->ino - 1) / 8 + inode_start;
@@ -360,7 +360,6 @@ int findmyname(MINODE *parent, u32 myino, char *myname)
 		if (mip->INODE.i_block[i] == 0)
 			break;
 		get_block(dev, mip->INODE.i_block[i], buf);
-
 		if (ino = findmyname_block(buf, myino, myname))
 			return ino;
 	}
@@ -373,7 +372,7 @@ int findmyname(MINODE *parent, u32 myino, char *myname)
 	{
 		if(get_indirect(dev, mip->INODE.i_block[12], i, buf))
 		{
-			if(ino = findmyname_block(buf, myino, myname))
+			if(ino = findmyname_block(buf,  myino, myname))
 				return ino;
 		}
 		else
@@ -410,7 +409,7 @@ int findmyname(MINODE *parent, u32 myino, char *myname)
 			{
 				if(get_triple_indirect(dev, mip->INODE.i_block[14], i, j, k, buf))
 				{
-					if(ino = findmyname_block(buf, myino, myname))
+					if(ino = findmyname_block(buf, mip->INODE.i_block[i], myname))
 						return ino;
 				}
 				else

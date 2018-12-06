@@ -1,4 +1,5 @@
 /*************** type.h file ************************/
+#include <ext2fs/ext2_fs.h>
 #ifndef TYPE_H
 #define TYPE_H
 
@@ -41,7 +42,7 @@ typedef struct oft{
   int  offset;
 }OFT;
 
-typedef struct proc{
+typedef struct proc{//list of process
   struct proc *next;
   int          pid;
   int          ppid;
