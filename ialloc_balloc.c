@@ -1,9 +1,10 @@
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <ext2fs/ext2_fs.h>
-#include "util.h"
+//#include <stdio.h>
+//#include <stdlib.h>
+//#include <fcntl.h>
+//#include <ext2fs/ext2_fs.h>
+//#include "util.h"
+#include "ialloc_balloc.h"
+/*
 // define shorter TYPES, save typing efforts
 typedef struct ext2_group_desc  GD;
 typedef struct ext2_super_block SUPER;
@@ -17,52 +18,10 @@ SUPER *sp;
 INODE *ip;
 DIR   *dp; 
 
-/********** globals *************/
 int fd;
 int imap, bmap;  // IMAP and BMAP block number
 int ninodes, nblocks, nfreeInodes, nfreeBlocks;
-/*
-int get_block(int fd, int blk, char buf[ ])
-{
-  lseek(fd, (long)blk*BLKSIZE, 0);
-  read(fd, buf, BLKSIZE);
-}
-
-int put_block(int fd, int blk, char buf[ ])
-{
-  lseek(fd, (long)blk*BLKSIZE, 0);
-  write(fd, buf, BLKSIZE);
-}
 */
-int tst_bit(char *buf, int bit)
-{
-    return buf[bit/8] & (1 << (bit%8));
-    /*
-  int i, j;
-  i = bit/8; j=bit%8;
-  if (buf[i] & (1 << j))
-     return 1;
-  return 0;
-  */
-}
-
-int set_bit(char *buf, int bit)
-{
-     buf[bit/8] |= (1 << (bit%8));
-    /*
-  int i, j;
-  i = bit/8; j=bit%8;
-  buf[i] |= (1 << j);
-    */
-}
-
-int clr_bit(char *buf, int bit)
-{
-  int i, j;
-  i = bit/8; j=bit%8;
-  buf[i] &= ~(1 << j);
-}
-
 int decFreeInodes(int dev)
 {
   char buf[BLKSIZE];
@@ -123,6 +82,3 @@ int balloc(int dev)
     printf("no more free blocks\n");
     return 0;
 }
-
-
-

@@ -7,6 +7,8 @@
 #include <time.h>
 #include <libgen.h>
 #include <sys/stat.h>
+#include "rmdir.h"
+#include "ialloc_balloc.h"
 
 MINODE minode[NMINODE];
 MINODE *root;
@@ -16,9 +18,6 @@ PROC   proc[NPROC], *running;
 char gpath[256];   // hold tokenized strings
 char *name[64];    // token string pointers
 int  n;            // number of token strings 
-
-
-
 
 int fd, dev, d_start;
 int  nblocks, ninodes, bmap, imap, inode_start;
@@ -86,7 +85,7 @@ int mycd()
         running->cwd = root;
         return 0;
     }
-    char * token = strtok(pathname, "/");
+    //char * token = strtok(pathname, "/");
     int ino = getino(pathname);
     MINODE *mip = iget(dev, ino);
     if(S_ISDIR(mip->INODE.i_mode))
@@ -108,13 +107,13 @@ void pwd_helper(MINODE * c_cwd)
     }
     char buffer[256];
     int pino = search(c_cwd, "..");
-    int myino = search(c_cwd, ".");
     MINODE * pip = iget(dev, pino);
-    findmyname(pip, myino, buffer);
+    findmyname(pip, c_cwd->ino, buffer);
     pwd_helper(pip);
     iput(pip);
     printf("/%s", buffer);
 }
+
 void pwd(void)
 {
     
@@ -126,7 +125,7 @@ void pwd(void)
 }
 
 void mydirname(char * path){
-    char * temp[128];
+    char temp[128];
     strcpy(temp, path);
     strcpy(path, "");
     char * tokens[69];
@@ -150,7 +149,7 @@ void mydirname(char * path){
 
 void mybasename(char * path){
     //last token
-    char * temp[128];
+    char temp[128];
     strcpy(temp, path);
     char * tokens[69];
     int i = 0;
@@ -453,7 +452,7 @@ int main(int argc, char * argv[]){
         fgets(input, 256, stdin);
 
         parse_line(input);
-        printf("cwd: %s path: %s\n", cmd, pathname);
+        printf("cmd: %s path: %s\n", cmd, pathname);
        puts(cmd);
         if(strcmp(cmd, "cd") == 0)
         {
@@ -463,6 +462,10 @@ int main(int argc, char * argv[]){
         {
             make_dir();
         }
+		else if(strcmp(cmd, "rmdir") == 0)
+		{
+			remove_dir();
+		}
         else if(strcmp(cmd, "ls") == 0)
         {
             ls();
@@ -477,9 +480,8 @@ int main(int argc, char * argv[]){
         }
         else if (strcmp(cmd, "help") == 0)
         {
-           printf("{Available commands: cd | mkdir | ls | pwd | quit}\n");
+           printf("{Available commands: cd | mkdir | rmdir | ls | pwd | quit}\n");
         }
-    
         else
         {
             printf("Invalid command\n");

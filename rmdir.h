@@ -6,7 +6,7 @@
 #include "idealloc_bdealloc.h"
 #include <time.h>
 
-int rmdir(char *pathname);
+int remove_dir();
 int rm_child(MINODE *parent, char *name);
 
 #endif

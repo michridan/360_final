@@ -1,5 +1,3 @@
-
-
 #ifndef UTIL_H
 #define UTIL_H
 
@@ -25,7 +23,9 @@ extern int fd, dev;
 extern int nblocks, ninodes, bmap, imap, inode_start;
 extern char line[256], cmd[32], pathname[256];
 
-
+int tst_bit(char *buf, int bit);
+int set_bit(char *buf, int bit);
+int clr_bit(char *buf, int bit);
 int get_block(int dev, int blk, char *buf);
 int put_block(int dev, int blk, char *buf);
 int get_indirect(int dev, int i_blk, int blk, char *buf);
@@ -40,13 +40,8 @@ int getino(char *pathname);
 int findmyname_block(char *buf, int ino, char *name);
 int findmyname(MINODE *parent, u32 myino, char *myname);
 
-int ialloc(int dev);
-int balloc(int dev);
-int decFreeInodes(int dev);
-int clr_bit(char *buf, int bit);
-int set_bit(char *buf, int bit);
-int tst_bit(char *buf, int bit);
-int put_block(int fd, int blk, char buf[ ]);
-int get_block(int fd, int blk, char buf[ ]);
+//int ialloc(int dev);
+//int balloc(int dev);
+//int decFreeInodes(int dev);
 
 #endif
