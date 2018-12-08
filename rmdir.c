@@ -131,7 +131,6 @@ int rm_child(MINODE *parent, char *name)
 
 		while(!found && cp < buf + BLKSIZE)
 		{
-			cp_prev = cp;
 
 			strncpy(temp, dp->name, dp->name_len);
 			temp[dp->name_len] = 0;
@@ -142,6 +141,7 @@ int rm_child(MINODE *parent, char *name)
 				break;
 			}
 
+			cp_prev = cp;
 			cp += dp->rec_len;
 			dp = (DIR *)cp;
 		}
@@ -185,19 +185,12 @@ int rm_child(MINODE *parent, char *name)
 			// Advance pointer to the entry to move
 			cp += dp->rec_len;
 			dp = (DIR *)cp;
-
-			// Copy the entry over
-			dp_prev->inode = dp->inode;
-			dp_prev->rec_len = dp->rec_len;
-			dp_prev->name_len = dp->name_len;
-			strncpy(dp_prev->name, dp->name, dp->name_len);
-
-			// Advance the previous entry pointer
-			cp_prev += dp_prev->rec_len;
-			dp_prev = (DIR *)cp_prev;
 		}
+		// add the extra space to the last entry
+		dp->rec_len += extra;
 
-		// add back the extra space to the last entry
-		dp_prev->rec_len += extra;
+		// Move the stuff after the old entry back to fill the gap
+		memcpy(cp_prev, cp_prev + extra, (buf + BLKSIZE) - (cp_prev + extra) + 1);
 	}
+	put_block(dev, parent->INODE.i_block[i], buf);
 }
