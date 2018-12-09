@@ -631,9 +631,9 @@ void truncate(MINODE *mip)
     }
 
 	// deallocate double indirect blocks
-    if(mip->inode.i_block[13] != 0)
+    if(mip->INODE.i_block[13] != 0)
     {
-        get_block(mip->dev, mip->inode.i_block[13], ibuf);
+        get_block(mip->dev, mip->INODE.i_block[13], ibuf);
         for(int i = 0; i < 256; i++)
         {
 			if(ibuf[i * 4] == 0)
@@ -689,16 +689,6 @@ int unlink(void)
 	// Decrement links_count and deallocate if zero
 	if(--mip->INODE.i_links_count == 0)
 	{
-		/*
-		// Deallocate its block and inode
-		for (i=0; i<12; i++)
-		{
-			if (mip->INODE.i_block[i]==0)
-				continue;
-
-			bdealloc(mip->dev, mip->INODE.i_block[i]);
-		}
-		*/
 		truncate(mip);
 		idealloc(mip->dev, mip->ino);
 	}
@@ -720,6 +710,52 @@ int unlink(void)
     iput(pip);
 
     return 1;
+}
+
+int mystat()
+{
+	int ino = getino(pathname);
+
+	if(!ino)
+	{
+		return 0;
+	}
+
+	MINODE *mip = iget(dev, ino);
+	INODE st = mip->INODE;
+
+	dir_base_name(pathname);
+
+	printf("Name: %s\n", bname);
+	printf("Size: %d\n", st.i_size);
+	printf("Links: %d\n", st.i_links_count);
+	printf("User: %d\n", st.i_uid);
+	printf("Group: %d\n", st.i_gid);
+	printf("Blocks: %d\n", st.i_blocks);
+	printf("Ino: %d\n", mip->ino);
+	printf("Dev: %d\n", mip->dev);
+	printf("Access Time: %s\n", ctime((time_t *)&st.i_atime));
+	printf("Mod Time: %s\n", ctime((time_t *)&st.i_mtime));
+	printf("Create Time: %s\n", ctime((time_t *)&st.i_ctime));
+
+	iput(mip);
+	return 1;
+}
+
+int ch_mod()
+{
+	char path[256] = {0};
+	int mod, ino;
+
+	sscanf(pathname, "%d %s", &mod, path);
+
+	if((ino = getino(path)) == 0)
+		return 0;
+
+	MINODE *mip = iget(dev, ino);
+
+	// clear current permissions
+	//mip->INODE.i_mode &= 
 }
 
 int main(int argc, char * argv[]){
@@ -785,6 +821,10 @@ int main(int argc, char * argv[]){
             printf("about to call\n");
             mylink();
         }
+		else if(strcmp(cmd, "stat") == 0)
+		{
+			mystat();
+		}
         else if(strcmp(cmd, "quit") == 0)
         {
             break;

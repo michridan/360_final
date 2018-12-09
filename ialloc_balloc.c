@@ -38,7 +38,7 @@ int decFreeInodes(int dev)
   put_block(dev, 2, buf);
 }
 
-int decFreeInodes(int dev)
+int decFreeBlocks(int dev)
 {
   char buf[BLKSIZE];
 
@@ -86,7 +86,7 @@ int balloc(int dev)
         if(tst_bit(buf, i)==0)
         {
             set_bit(buf, i);
-            decFreeInodes(dev);
+            decFreeBlocks(dev);
             put_block(dev, bmap, buf);
             
             return i+1;
