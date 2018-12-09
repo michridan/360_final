@@ -1,10 +1,9 @@
-//#include <stdio.h>
-//#include <stdlib.h>
-//#include <fcntl.h>
-//#include <ext2fs/ext2_fs.h>
-//#include "util.h"
-#include "ialloc_balloc.h"
-/*
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <fcntl.h>
+#include <ext2fs/ext2_fs.h>
+#include "util.h"
 // define shorter TYPES, save typing efforts
 typedef struct ext2_group_desc  GD;
 typedef struct ext2_super_block SUPER;
@@ -18,10 +17,52 @@ SUPER *sp;
 INODE *ip;
 DIR   *dp; 
 
+/********** globals *************/
 int fd;
 int imap, bmap;  // IMAP and BMAP block number
 int ninodes, nblocks, nfreeInodes, nfreeBlocks;
+/*
+int get_block(int fd, int blk, char buf[ ])
+{
+  lseek(fd, (long)blk*BLKSIZE, 0);
+  read(fd, buf, BLKSIZE);
+}
+
+int put_block(int fd, int blk, char buf[ ])
+{
+  lseek(fd, (long)blk*BLKSIZE, 0);
+  write(fd, buf, BLKSIZE);
+}
 */
+int tst_bit(char *buf, int bit)
+{
+    return buf[bit/8] & (1 << (bit%8));
+    /*
+  int i, j;
+  i = bit/8; j=bit%8;
+  if (buf[i] & (1 << j))
+     return 1;
+  return 0;
+  */
+}
+
+int set_bit(char *buf, int bit)
+{
+     buf[bit/8] |= (1 << (bit%8));
+    /*
+  int i, j;
+  i = bit/8; j=bit%8;
+  buf[i] |= (1 << j);
+    */
+}
+
+int clr_bit(char *buf, int bit)
+{
+  int i, j;
+  i = bit/8; j=bit%8;
+  buf[i] &= ~(1 << j);
+}
+
 int decFreeInodes(int dev)
 {
   char buf[BLKSIZE];
@@ -38,20 +79,6 @@ int decFreeInodes(int dev)
   put_block(dev, 2, buf);
 }
 
-int decFreeBlocks(int dev)
-{
-  char buf[BLKSIZE];
-
-  // dec free blocks count in SUPER and GD
-  get_block(dev, 1, buf);
-  ((SUPER*)buf)->s_free_blocks_count--;
-  put_block(dev, 1, buf);
-
-  get_block(dev, 2, buf);
-  ((GD*)buf)->bg_free_blocks_count--;
-  put_block(dev, 2, buf);
-}
-
 int ialloc(int dev)
 {
 
@@ -59,16 +86,16 @@ int ialloc(int dev)
 
   // read inode_bitmap block
   get_block(dev, imap, buf);
-    printf("HERE\n");
+
   for (int i=0; i < ninodes; i++){
     if (tst_bit(buf, i)==0){
-        printf("HERE v2\n");
+
        set_bit(buf,i);
-       printf("HERE v3\n");
+
        decFreeInodes(dev);
-    printf("HERE v4\n");
+
        put_block(dev, imap, buf);
-        printf("HERE v5\n");
+
        return i+1;
     }
   }
@@ -86,7 +113,7 @@ int balloc(int dev)
         if(tst_bit(buf, i)==0)
         {
             set_bit(buf, i);
-            decFreeBlocks(dev);
+            decFreeInodes(dev);
             put_block(dev, bmap, buf);
             
             return i+1;
@@ -95,4 +122,64 @@ int balloc(int dev)
     }
     printf("no more free blocks\n");
     return 0;
+}
+
+
+int incFreeInodes(int dev)
+{
+	char buf[BLKSIZE];
+
+	// increment free inodes count in SUPER and GD
+	get_block(dev, 1, buf);
+	((SUPER*)buf)->s_free_inodes_count++;
+	put_block(dev, 1, buf);
+
+	get_block(dev, 2, buf);
+	((GD*)buf)->bg_free_inodes_count++;
+	put_block(dev, 2, buf);
+}
+
+int incFreeBlocks(int dev)
+{
+	char buf[BLKSIZE];
+
+	// increment free inodes count in SUPER and GD
+	get_block(dev, 1, buf);
+	((SUPER*)buf)->s_free_blocks_count++;
+	put_block(dev, 1, buf);
+
+	get_block(dev, 2, buf);
+	((GD*)buf)->bg_free_blocks_count++;
+	put_block(dev, 2, buf);
+}
+
+
+int bdealloc(int dev, int bno)
+{
+	char buf[BLKSIZE];
+
+	// read _bitmap block
+	get_block(dev, bmap, buf);
+
+	clr_bit(buf, bno - 1);
+	incFreeBlocks(dev);
+
+	put_block(dev, bmap, buf);
+
+	return 1;
+}
+
+int idealloc(int dev, int ino)
+{
+	char buf[BLKSIZE];
+
+	// read inode_bitmap block
+	get_block(dev, imap, buf);
+
+	clr_bit(buf, ino - 1);
+	incFreeInodes(dev);
+
+	put_block(dev, imap, buf);
+
+	return 1;
 }
