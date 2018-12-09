@@ -22,7 +22,7 @@ int  n;            // number of token strings
 
 int fd, dev, d_start;
 int  nblocks, ninodes, bmap, imap, inode_start;
-char line[256], cmd[32], pathname[256], dname[256], bname[256];
+char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256];
 
 
 void mount_root(char * name)
@@ -70,11 +70,15 @@ void init()
 
 void dir_base_name(char *path)
 {
+
     char temp[256];
     strcpy(temp, path);
     strcpy(dname, dirname(temp));
     strcpy(temp, path);
     strcpy(bname, basename(temp));
+
+
+    
 }
 
 int mycd()
@@ -417,6 +421,8 @@ void parse_line(char * line)
     strcpy(cmd, "");
             
     strcpy(pathname, "");
+
+    strcpy(destname, "");
         
     strcpy(cmd, strtok(line, " \n"));
 
@@ -427,6 +433,13 @@ void parse_line(char * line)
         return;
     }
     strcpy(pathname, temp);
+    temp = strtok(NULL, "\n ");
+
+    if (!temp)
+    {
+        return;
+    }
+    strcpy(destname, temp);
 }
 
 int create_name(MINODE *pip, int myino, char * myname)
@@ -539,21 +552,27 @@ int create_file(){
 
 void mylink()
 {
+    
+    printf("destname: %s\n", destname);
     int ino = getino(pathname);//get ino for file to link
+    
     //check if file exists
     if(!ino){
         printf("Link target %s does not exist\n", pathname);
         return;
     }
     MINODE * linked = iget(dev, ino); //get MINODE for file to link
+    
     if(S_ISDIR(linked->INODE.i_mode))
     {
         printf("Can't link to a DIR\n");
         return;
     }
+    
     dir_base_name(pathname);
-
+    
     int dino = getino(dname);
+    //bname f1
 
     if(!dino)
     {
@@ -562,28 +581,27 @@ void mylink()
     }
 
     MINODE * dminode = iget(dev, dino);//get MINODE for dir containing file to be linked
-   
+
     if(!S_ISDIR(dminode->INODE.i_mode))
     {
         printf("Can't link to a DIR\n");
         return;
     }
-    if(search(dino, bname))
-    {
-        printf("File %s already exists", bname);
-        return;
-    }
-    else
-    {
+   // if(search(dminode, bname))
+    //{
+     //   printf("File %s already exists", bname);
+      //  return;
+    //}
+    
 
-                printf("WE get gerer v 1.5\n");
-        enter_name(dminode, ino, bname);
-               printf("WE get gerer v 2\n");
+         
+        enter_name(dminode, ino, destname);
+
         linked->dirty = 1;
         linked->INODE.i_links_count += 1;
         iput(linked);
         iput(dminode);
-    }
+    
 
 }
 
@@ -609,9 +627,12 @@ int main(int argc, char * argv[]){
         printf("~>");
 
         fgets(input, 256, stdin);
-
+        input[strlen(input) - 1] = '\0';
+        
+        //sscanf(input, "%s %s %s", cmd, pathname, destname);
         parse_line(input);
-        printf("cwd: %s path: %s\n", cmd, pathname);
+        printf("pathname : %s\n", pathname);
+        //printf("cwd: %s path: %s\n", cmd, pathname);
        puts(cmd);
         if(strcmp(cmd, "cd") == 0)
         {
@@ -636,6 +657,7 @@ int main(int argc, char * argv[]){
         }
         else if(strcmp(cmd, "link") == 0)
         {
+            printf("about to call\n");
             mylink();
         }
         else if(strcmp(cmd, "quit") == 0)
