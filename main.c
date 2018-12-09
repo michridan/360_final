@@ -888,15 +888,6 @@ int unlink(void)
 	// Decrement links_count and deallocate if zero
 	if(--mip->INODE.i_links_count == 0)
 	{
-		/*
-		// Deallocate its block and inode
-		for (i=0; i<12; i++)
-		{
-			if (mip->INODE.i_block[i]==0)
-				continue;
-			bdealloc(mip->dev, mip->INODE.i_block[i]);
-		}
-		*/
 		truncate(mip);
 		idealloc(mip->dev, mip->ino);
 	}
@@ -947,6 +938,7 @@ void utime()
 
     }
 }
+
 int mystat()
 {
 	int ino = getino(pathname);
@@ -977,13 +969,21 @@ int mystat()
 	return 1;
 }
 
-    //time_t t = (time_t)(mip->INODE.i_ctime);
-    //char temp[256];
-    //strcpy(temp, ctime(&t));
-   // //append null to end
- //   temp[strlen(temp) - 1] = '\0';
+int ch_mod()
+{
+	char path[256] = {0};
+	int mod, ino;
 
+	sscanf(pathname, "%d %s", &mod, path);
 
+	if((ino = getino(path)) == 0)
+		return 0;
+
+	MINODE *mip = iget(dev, ino);
+
+	// clear current permissions
+	//mip->INODE.i_mode &= 
+}
 
 int main(int argc, char * argv[]){
 
@@ -1047,7 +1047,7 @@ int main(int argc, char * argv[]){
         {
 
             mylink();
-        }
+
         else if(strcmp(cmd, "unlink") == 0)
         {
 
