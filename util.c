@@ -22,6 +22,35 @@ extern int fd, dev;
 extern int nblocks, ninodes, bmap, imap, inode_start;
 extern char line[256], cmd[32], pathname[256];
 
+int tst_bit(char *buf, int bit)
+{
+    return buf[bit/8] & (1 << (bit%8));
+    /*
+  int i, j;
+  i = bit/8; j=bit%8;
+  if (buf[i] & (1 << j))
+     return 1;
+  return 0;
+  */
+}
+
+int set_bit(char *buf, int bit)
+{
+     buf[bit/8] |= (1 << (bit%8));
+    /*
+  int i, j;
+  i = bit/8; j=bit%8;
+  buf[i] |= (1 << j);
+    */
+}
+
+int clr_bit(char *buf, int bit)
+{
+  int i, j;
+  i = bit/8; j=bit%8;
+  buf[i] &= ~(1 << j);
+}
+
 
 int get_block(int dev, int blk, char *buf)
 {
@@ -288,12 +317,12 @@ int getino(char *pathname)
 	if(!strcmp(name[0], "/"))
 	{
 		i = 1;
-		mip = root;
+		mip = iget(dev, root->ino);
 	}
 	else
 	{
 		i = 0;
-		mip = running->cwd;
+		mip = iget(dev, running->cwd->ino);
 	}
 
 	while(i < n)
@@ -310,6 +339,7 @@ int getino(char *pathname)
 			return 0;
 		}
 		
+		iput(mip);
 		mip = iget(dev, ino);
 		i++;
 	}

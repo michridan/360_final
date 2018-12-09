@@ -7,6 +7,8 @@
 #include <time.h>
 #include <libgen.h>
 #include <sys/stat.h>
+#include "rmdir.h"
+#include "ialloc_balloc.h"
 
 MINODE minode[NMINODE];
 MINODE *root;
@@ -16,9 +18,6 @@ PROC   proc[NPROC], *running;
 char gpath[256];   // hold tokenized strings
 char *name[64];    // token string pointers
 int  n;            // number of token strings 
-
-
-
 
 int fd, dev, d_start;
 int  nblocks, ninodes, bmap, imap, inode_start;
@@ -90,7 +89,7 @@ int mycd()
         running->cwd = root;
         return 0;
     }
-    char * token = strtok(pathname, "/");
+    //char * token = strtok(pathname, "/");
     int ino = getino(pathname);
     MINODE *mip = iget(dev, ino);
     if(S_ISDIR(mip->INODE.i_mode))
@@ -112,13 +111,13 @@ void pwd_helper(MINODE * c_cwd)
     }
     char buffer[256];
     int pino = search(c_cwd, "..");
-    int myino = search(c_cwd, ".");
     MINODE * pip = iget(dev, pino);
-    findmyname(pip, myino, buffer);
+    findmyname(pip, c_cwd->ino, buffer);
     pwd_helper(pip);
     iput(pip);
     printf("/%s", buffer);
 }
+
 void pwd(void)
 {
     
@@ -130,7 +129,7 @@ void pwd(void)
 }
 
 void mydirname(char * path){
-    char * temp[128];
+    char temp[128];
     strcpy(temp, path);
     strcpy(path, "");
     char * tokens[69];
@@ -154,7 +153,7 @@ void mydirname(char * path){
 
 void mybasename(char * path){
     //last token
-    char * temp[128];
+    char temp[128];
     strcpy(temp, path);
     char * tokens[69];
     int i = 0;
@@ -605,6 +604,124 @@ void mylink()
 
 }
 
+void truncate(MINODE *mip)
+{
+	int i, j, k, max = 256;
+	char buf[BLKSIZE], ibuf[BLKSIZE];
+	// Deallocate 12 direct blocks
+	for (i=0; i<12; i++)
+	{
+		if (mip->INODE.i_block[i]==0)
+			continue;
+
+		bdealloc(mip->dev, mip->INODE.i_block[i]);
+	}
+
+	// deallocate indirect blocks
+    if(mip->INODE.i_block[12] != 0)
+    {
+        get_block(mip->dev, mip->INODE.i_block[12], (char*)buf);
+        for(int i = 0; i < 256; i++)
+		{
+			if (buf[i * 4] == 0)
+				continue;
+
+			bdealloc(mip->dev, buf[i * 4]);
+		}
+    }
+
+	// deallocate double indirect blocks
+    if(mip->inode.i_block[13] != 0)
+    {
+        get_block(mip->dev, mip->inode.i_block[13], ibuf);
+        for(int i = 0; i < 256; i++)
+        {
+			if(ibuf[i * 4] == 0)
+				continue;
+
+            get_block(mip->dev, ibuf[i * 4], buf);
+            for(int j = 0; j < 256; j++)
+            {
+				if (buf[j * 4] == 0)
+					continue;
+
+				bdealloc(mip->dev, buf[j * 4]);
+            }
+        }
+	}
+}
+
+int unlink(void)
+{
+	if(!strcmp(pathname, ""))
+	{
+		printf("Usage: unlink [pathname]\n");
+		return -1;
+	}
+
+	int ino = getino(pathname), empty = 1, i;
+	
+	if(!ino)
+	{
+		printf("%s not found\n", pathname);
+		return -1;
+	}
+
+    MINODE *mip = iget(dev, ino), *pip;
+	DIR *dp;
+	char *cp, buf[BLKSIZE], temp[BLKSIZE], *dname = dirname(pathname), *name = basename(pathname);
+
+	if(running->uid != 0 && running->uid != mip->INODE.i_uid)
+	{
+		printf("You don't have permission to remove %s.\n", name);
+		iput(mip);
+		return -1;
+	}
+
+	// Check if REG or LNK
+	if(!S_ISREG(mip->INODE.i_mode) && !S_ISLNK(mip->INODE.i_mode))
+	{
+		printf("%s is not a regular file or symbolic link.\n", name);
+		iput(mip);
+		return -1;
+	}
+
+	// Decrement links_count and deallocate if zero
+	if(--mip->INODE.i_links_count == 0)
+	{
+		/*
+		// Deallocate its block and inode
+		for (i=0; i<12; i++)
+		{
+			if (mip->INODE.i_block[i]==0)
+				continue;
+
+			bdealloc(mip->dev, mip->INODE.i_block[i]);
+		}
+		*/
+		truncate(mip);
+		idealloc(mip->dev, mip->ino);
+	}
+    iput(mip);
+
+	// get parent's ino and Minode 
+	ino = getino(dname);
+	pip = iget(mip->dev, ino);
+
+	// remove child's entry from parent directory
+
+	rm_child(pip, name);
+
+	pip->INODE.i_links_count--;
+	pip->dirty = 1;
+	pip->INODE.i_atime = (u32)time(NULL);
+	pip->INODE.i_mtime = pip->INODE.i_atime;
+
+    iput(pip);
+
+    return 1;
+}
+
 int main(int argc, char * argv[]){
 
 
@@ -631,8 +748,8 @@ int main(int argc, char * argv[]){
         
         //sscanf(input, "%s %s %s", cmd, pathname, destname);
         parse_line(input);
-        printf("pathname : %s\n", pathname);
         //printf("cwd: %s path: %s\n", cmd, pathname);
+        printf("cmd: %s path: %s\n", cmd, pathname);
        puts(cmd);
         if(strcmp(cmd, "cd") == 0)
         {
@@ -642,6 +759,14 @@ int main(int argc, char * argv[]){
         {
             make_dir();
         }
+		else if(strcmp(cmd, "rmdir") == 0)
+		{
+			remove_dir();
+		}
+		else if(strcmp(cmd, "unlink") == 0)
+		{
+			unlink();
+		}
         else if(strcmp(cmd, "ls") == 0)
         {
             ls();
@@ -666,9 +791,8 @@ int main(int argc, char * argv[]){
         }
         else if (strcmp(cmd, "help") == 0)
         {
-           printf("{Available commands: cd | mkdir | ls | pwd | quit}\n");
+           printf("{Available commands: cd | mkdir | rmdir | ls | pwd | quit}\n");
         }
-    
         else
         {
             printf("Invalid command\n");
