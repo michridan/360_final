@@ -21,7 +21,7 @@ int  n;            // number of token strings
 
 int fd, dev, d_start;
 int  nblocks, ninodes, bmap, imap, inode_start;
-char line[256], cmd[32], pathname[256], dname[256], bname[256];
+char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256];
 
 
 void mount_root(char * name)
@@ -69,11 +69,15 @@ void init()
 
 void dir_base_name(char *path)
 {
+
     char temp[256];
     strcpy(temp, path);
     strcpy(dname, dirname(temp));
     strcpy(temp, path);
     strcpy(bname, basename(temp));
+
+
+    
 }
 
 int mycd()
@@ -416,6 +420,8 @@ void parse_line(char * line)
     strcpy(cmd, "");
             
     strcpy(pathname, "");
+
+    strcpy(destname, "");
         
     strcpy(cmd, strtok(line, " \n"));
 
@@ -426,6 +432,176 @@ void parse_line(char * line)
         return;
     }
     strcpy(pathname, temp);
+    temp = strtok(NULL, "\n ");
+
+    if (!temp)
+    {
+        return;
+    }
+    strcpy(destname, temp);
+}
+
+int create_name(MINODE *pip, int myino, char * myname)
+{
+
+    int i = 0;
+    int ideal_length = 4 * ((8 + strlen(myname)+3) / 4);
+    while (i < 12)
+    {
+       
+        char buffer[BLKSIZE];
+        DIR * dp = (DIR * )buffer;
+        char * cp = buffer;
+        int need_length = 4 * ( ( 8 + strlen(myname) + 3) / 4 ) ;
+        if (pip->INODE.i_block[i] == 0)
+        {
+            //allocates a new block for future use
+            pip->INODE.i_block[i] = balloc(dev);
+            get_block(pip->dev, pip->INODE.i_block[i], buffer);
+            //sets members of new block
+            *dp = (DIR){.inode = myino, .rec_len = BLKSIZE, .name_len = strlen(myname)};
+            //copies name 
+            strncpy(dp->name, myname, dp->name_len);
+            break;
+        }
+         
+        get_block(pip->dev, pip->INODE.i_block[i], buffer);
+        while(cp + dp->rec_len < buffer + BLKSIZE)
+        {
+            //go to next directory entry
+            cp += dp->rec_len;
+            dp = (DIR *)cp;
+        }
+        printf("i: %d\n", i);
+        int remain = dp->rec_len - (4 * ((8 + dp->name_len + 3)/4));//cuts down to real length
+        
+        printf("i: %d\n", i);
+        if(remain >= need_length)
+        {
+            dp->rec_len = (4 * (( 8 + dp->name_len + 3)/4));
+            //go to next directory entry
+            cp += dp->rec_len;
+            dp = (DIR *)cp;
+            *dp = (DIR){.inode = myino, .rec_len = remain, .name_len = strlen(myname)};
+            //sets data values dor block
+            strncpy(dp->name, myname, dp->name_len);
+            put_block(pip->dev, pip->INODE.i_block[i], buffer);
+            //^ writes data block to disk
+            pip->dirty = 1;//marks as dirty
+            return 0;
+        }
+        i+=1;
+    }    
+}
+
+
+int mycreate(MINODE *pip)
+{
+
+    
+    int ino = ialloc(dev);    
+    int bno = 0;
+
+ 
+    MINODE * mip = iget(dev, ino); //in order to write contents into INODE in memory
+    INODE * ip = &(mip->INODE);
+    *ip  = (INODE){.i_mode = 0x81A4, .i_uid = running->uid, .i_gid = running->gid, .i_size = BLKSIZE, .i_links_count = 1, .i_atime = time(0L), .i_ctime = time(0L), .i_mtime = time(0L), .i_blocks = 0, .i_block = {bno} };
+
+    //makes mip->INODE have DIR contents
+    mip->dirty = 1;
+    
+    //now enter the nane of new DIR into parent's DIR
+
+    create_name(pip, ino, bname);
+
+    iput(mip);
+    return ino;
+}
+
+int create_file(){
+    dir_base_name(pathname);
+
+    int pino = getino(dname);
+    if(pino == 0)
+    {
+        printf("error: %s doesn't exist\n", dname);
+        return 1;
+    }
+   
+    MINODE * pip = iget(dev, pino);
+    if(search(pip, bname))
+    {
+        printf("error: DIR %s already exists\n", bname);
+        return 3;
+    }
+    if(!(S_ISDIR(pip->INODE.i_mode)))
+    {
+        printf("error: %s is not a DIR\n", dname);
+        return 2;
+    }
+    //else is a dir
+    else{
+        pip->INODE.i_links_count += 1;//adding another link to file so increment # of links
+        mycreate(pip);
+       
+        pip->dirty = 1;
+    }
+    iput(pip);
+}
+
+void mylink()
+{
+    
+    printf("destname: %s\n", destname);
+    int ino = getino(pathname);//get ino for file to link
+    
+    //check if file exists
+    if(!ino){
+        printf("Link target %s does not exist\n", pathname);
+        return;
+    }
+    MINODE * linked = iget(dev, ino); //get MINODE for file to link
+    
+    if(S_ISDIR(linked->INODE.i_mode))
+    {
+        printf("Can't link to a DIR\n");
+        return;
+    }
+    
+    dir_base_name(pathname);
+    
+    int dino = getino(dname);
+    //bname f1
+
+    if(!dino)
+    {
+        printf("DIR %s does not exist\n", dname);
+        return;
+    }
+
+    MINODE * dminode = iget(dev, dino);//get MINODE for dir containing file to be linked
+
+    if(!S_ISDIR(dminode->INODE.i_mode))
+    {
+        printf("Can't link to a DIR\n");
+        return;
+    }
+   // if(search(dminode, bname))
+    //{
+     //   printf("File %s already exists", bname);
+      //  return;
+    //}
+    
+
+         
+        enter_name(dminode, ino, destname);
+
+        linked->dirty = 1;
+        linked->INODE.i_links_count += 1;
+        iput(linked);
+        iput(dminode);
+    
+
 }
 
 void truncate(MINODE *mip)
@@ -568,8 +744,11 @@ int main(int argc, char * argv[]){
         printf("~>");
 
         fgets(input, 256, stdin);
-
+        input[strlen(input) - 1] = '\0';
+        
+        //sscanf(input, "%s %s %s", cmd, pathname, destname);
         parse_line(input);
+        //printf("cwd: %s path: %s\n", cmd, pathname);
         printf("cmd: %s path: %s\n", cmd, pathname);
        puts(cmd);
         if(strcmp(cmd, "cd") == 0)
@@ -595,6 +774,16 @@ int main(int argc, char * argv[]){
         else if(strcmp(cmd, "pwd") == 0)
         {
             pwd();
+        }
+
+        else if(strcmp(cmd, "creat") == 0)
+        {
+            create_file();
+        }
+        else if(strcmp(cmd, "link") == 0)
+        {
+            printf("about to call\n");
+            mylink();
         }
         else if(strcmp(cmd, "quit") == 0)
         {
