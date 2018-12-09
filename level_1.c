@@ -21,7 +21,6 @@ int mycd()
         running->cwd = root;
         return 0;
     }
-    char * token = strtok(pathname, "/");
     int ino = getino(pathname);
     MINODE *mip = iget(dev, ino);
     if(S_ISDIR(mip->INODE.i_mode))
@@ -50,6 +49,7 @@ void pwd_helper(MINODE * c_cwd)
     iput(pip);
     printf("/%s", buffer);
 }
+
 void pwd(void)
 {
     
@@ -61,7 +61,7 @@ void pwd(void)
 }
 
 void mydirname(char * path){
-    char * temp[128];
+    char temp[128];
     strcpy(temp, path);
     strcpy(path, "");
     char * tokens[69];
@@ -85,7 +85,7 @@ void mydirname(char * path){
 
 void mybasename(char * path){
     //last token
-    char * temp[128];
+    char temp[128];
     strcpy(temp, path);
     char * tokens[69];
     int i = 0;
@@ -260,7 +260,7 @@ void file_ls(char * f_name, int ino)
         
         i -= 1;
     }
-    time_t t = (time_t)(mip->INODE.i_ctime);
+    time_t t = (time_t)(mip->INODE.i_atime);
     char temp[256];
     strcpy(temp, ctime(&t));
     //append null to end
@@ -327,6 +327,9 @@ int ls()
         ino = getino(temp);
         //get ino for specified path
     }
+
+	if(!ino)
+		return 0;
 
     MINODE * mip = iget(dev, ino);
     //gets MINODE for specified path
@@ -583,9 +586,6 @@ void mysymlink(){
     iput(newmip);
 }
 
-
-
-
 int remove_dir(void)
 {
 	if(!strcmp(pathname, ""))
@@ -604,7 +604,9 @@ int remove_dir(void)
 
     MINODE *mip = iget(dev, ino), *pip;
 	DIR *dp;
-	char *cp, buf[BLKSIZE], temp[BLKSIZE], *dname = dirname(pathname), *name = basename(pathname);
+	char *cp, buf[BLKSIZE], temp[BLKSIZE];
+
+	dir_base_name(pathname);
 
 	if(running->uid != 0 && running->uid != mip->INODE.i_uid)
 	{
@@ -616,7 +618,7 @@ int remove_dir(void)
 	// Check if DIR
 	if(!S_ISDIR(mip->INODE.i_mode))
 	{
-		printf("%s is not a directory.\n", name);
+		printf("%s is not a directory.\n", bname);
 		iput(mip);
 		return -1;
 	}
@@ -648,7 +650,7 @@ int remove_dir(void)
 
 	if(!empty)
 	{
-		printf("%s is not empty.\n", name);
+		printf("%s is not empty.\n", bname);
 		iput(mip);
 		return -1;
 	}
@@ -660,7 +662,7 @@ int remove_dir(void)
 		// if mip has any children, it will fail as being empty
 		if(mip == proc[i].cwd)
 		{
-			printf("%s is in use.\n", name);
+			printf("%s is in use.\n", bname);
 			iput(mip);
 			return -1;
 		}
@@ -684,7 +686,7 @@ int remove_dir(void)
 
 	// remove child's entry from parent directory
 
-	rm_child(pip, name);
+	rm_child(pip, bname);
 
 	pip->INODE.i_links_count--;
 	pip->dirty = 1;

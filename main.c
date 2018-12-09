@@ -51,7 +51,10 @@ void mount_root(char * name)
     imap = g->bg_inode_bitmap; //gets list of the states of inodes (used = 1, free = 0)
     inode_start = g->bg_inode_table; //keeps track of every directory, regular file, symbolic 
     //link, or special file; their location, size, type and access rights
-    root = proc[0].cwd = proc[1].cwd = iget(dev, 2); //sets root and cwd
+	// Set root and cwds
+    root = iget(dev, 2);
+    proc[0].cwd = iget(dev, 2)
+    proc[1].cwd = iget(dev, 2);
 }
 
 void init()
@@ -70,15 +73,11 @@ void init()
 
 void dir_base_name(char *path)
 {
-
     char temp[256];
     strcpy(temp, path);
     strcpy(dname, dirname(temp));
     strcpy(temp, path);
     strcpy(bname, basename(temp));
-
-
-    
 }
 
 int mycd()

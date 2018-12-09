@@ -127,13 +127,19 @@ int get_triple_indirect(int dev, int ti_blk, int di_blk, int i_blk, int blk, cha
 int tokenize(char *pathname)
 {
 	int i=0;
+	char *temp;
   // tokenize pathname into n components: name[0] to name[n-1];
 	if(pathname[0] == '/')
 		name[i++] = "/";
 
-	name[i++] = strtok(pathname, "/");
-	while(name[i++] = strtok(0, "/"));
-	return i - 1;
+	temp = strtok(pathname, "/");
+	while(temp)
+	{
+		name[i++] = temp;
+		temp = strtok(0, "/");
+	}
+
+	return i;
 }
 
 
@@ -325,6 +331,9 @@ int getino(char *pathname)
 		mip = iget(dev, running->cwd->ino);
 	}
 
+	// In case there isn't any searching to be done
+	ino = mip->ino;
+
 	while(i < n)
 	{
 		if(!S_ISDIR(mip->INODE.i_mode))
@@ -449,4 +458,187 @@ int findmyname(MINODE *parent, u32 myino, char *myname)
 	}
 
 	return 0;
+}
+
+int decFreeInodes(int dev)
+{
+  char buf[BLKSIZE];
+
+  // dec free inodes count in SUPER and GD
+  get_block(dev, 1, buf);
+  ((SUPER*)buf)->s_free_inodes_count--;
+  put_block(dev, 1, buf);
+
+  get_block(dev, 2, buf);
+  //gp = (GD *)buf;
+  //gp->bg_free_inodes_count--;
+  ((GD*)buf)->bg_free_inodes_count--;
+  put_block(dev, 2, buf);
+}
+
+int decFreeBlocks(int dev)
+{
+  char buf[BLKSIZE];
+
+  // dec free blocks count in SUPER and GD
+  get_block(dev, 1, buf);
+  ((SUPER*)buf)->s_free_blocks_count--;
+  put_block(dev, 1, buf);
+
+  get_block(dev, 2, buf);
+  ((GD*)buf)->bg_free_blocks_count--;
+  put_block(dev, 2, buf);
+}
+
+int ialloc(int dev)
+{
+
+  char buf[BLKSIZE];
+
+  // read inode_bitmap block
+  get_block(dev, imap, buf);
+    printf("HERE\n");
+  for (int i=0; i < ninodes; i++){
+    if (tst_bit(buf, i)==0){
+        printf("HERE v2\n");
+       set_bit(buf,i);
+       printf("HERE v3\n");
+       decFreeInodes(dev);
+    printf("HERE v4\n");
+       put_block(dev, imap, buf);
+        printf("HERE v5\n");
+       return i+1;
+    }
+  }
+  printf("ialloc(): no more free inodes\n");
+  return 0;
+}
+
+int balloc(int dev)
+{
+    int i = 0;
+    char buf[BLKSIZE];
+    get_block(dev, bmap, buf);
+    while(i < nblocks)
+    {
+        if(tst_bit(buf, i)==0)
+        {
+            set_bit(buf, i);
+            decFreeBlocks(dev);
+            put_block(dev, bmap, buf);
+            
+            return i+1;
+        }
+        i+=1;
+    }
+    printf("no more free blocks\n");
+    return 0;
+}
+
+int incFreeInodes(int dev)
+{
+	char buf[BLKSIZE];
+
+	// increment free inodes count in SUPER and GD
+	get_block(dev, 1, buf);
+	((SUPER*)buf)->s_free_inodes_count++;
+	put_block(dev, 1, buf);
+
+	get_block(dev, 2, buf);
+	((GD*)buf)->bg_free_inodes_count++;
+	put_block(dev, 2, buf);
+}
+
+int incFreeBlocks(int dev)
+{
+	char buf[BLKSIZE];
+
+	// increment free inodes count in SUPER and GD
+	get_block(dev, 1, buf);
+	((SUPER*)buf)->s_free_blocks_count++;
+	put_block(dev, 1, buf);
+
+	get_block(dev, 2, buf);
+	((GD*)buf)->bg_free_blocks_count++;
+	put_block(dev, 2, buf);
+}
+
+int idealloc(int dev, int ino)
+{
+	char buf[BLKSIZE];
+
+	// read inode_bitmap block
+	get_block(dev, imap, buf);
+
+	clr_bit(buf, ino - 1);
+	incFreeInodes(dev);
+
+	put_block(dev, imap, buf);
+
+	return 1;
+}
+
+int bdealloc(int dev, int bno)
+{
+	char buf[BLKSIZE];
+
+	// read _bitmap block
+	get_block(dev, bmap, buf);
+
+	clr_bit(buf, bno - 1);
+	incFreeBlocks(dev);
+
+	put_block(dev, bmap, buf);
+
+	return 1;
+}
+
+void truncate(MINODE *mip)
+{
+	int i, j, k, max = 256;
+	char buf[BLKSIZE], ibuf[BLKSIZE];
+	// Deallocate 12 direct blocks
+	for (i=0; i<12; i++)
+	{
+		if (mip->INODE.i_block[i]==0)
+			continue;
+		bdealloc(mip->dev, mip->INODE.i_block[i]);
+	}
+	// deallocate indirect blocks
+    if(mip->INODE.i_block[12] != 0)
+    {
+        get_block(mip->dev, mip->INODE.i_block[12], (char*)buf);
+        for(int i = 0; i < 256; i++)
+		{
+			if (buf[i * 4] == 0)
+				continue;
+			bdealloc(mip->dev, buf[i * 4]);
+		}
+    }
+	// deallocate double indirect blocks
+    if(mip->INODE.i_block[13] != 0)
+    {
+        get_block(mip->dev, mip->INODE.i_block[13], ibuf);
+        for(int i = 0; i < 256; i++)
+        {
+			if(ibuf[i * 4] == 0)
+				continue;
+            get_block(mip->dev, ibuf[i * 4], buf);
+            for(int j = 0; j < 256; j++)
+            {
+				if (buf[j * 4] == 0)
+					continue;
+				bdealloc(mip->dev, buf[j * 4]);
+            }
+        }
+	}
+}
+
+void dir_base_name(char *path)
+{
+    char temp[256];
+    strcpy(temp, path);
+    strcpy(dname, dirname(temp));
+    strcpy(temp, path);
+    strcpy(bname, basename(temp));
 }

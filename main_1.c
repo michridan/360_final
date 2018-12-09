@@ -17,10 +17,6 @@ PROC   proc[NPROC], *running;
 char gpath[256];   // hold tokenized strings
 char *name[64];    // token string pointers
 int  n;            // number of token strings 
-
-
-
-
 int fd, dev, d_start;
 int  nblocks, ninodes, bmap, imap, inode_start;
 char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256];
@@ -52,7 +48,10 @@ void mount_root(char * name)
     imap = g->bg_inode_bitmap; //gets list of the states of inodes (used = 1, free = 0)
     inode_start = g->bg_inode_table; //keeps track of every directory, regular file, symbolic 
     //link, or special file; their location, size, type and access rights
-    root = proc[0].cwd = proc[1].cwd = iget(dev, 2); //sets root and cwd
+	// Set root and cwds
+    root = iget(dev, 2);
+    proc[0].cwd = iget(dev, 2);
+    proc[1].cwd = iget(dev, 2);
 }
 
 void init()
@@ -68,20 +67,6 @@ void init()
         i+=1;
     }
 }
-
-void dir_base_name(char *path)
-{
-
-    char temp[256];
-    strcpy(temp, path);
-    strcpy(dname, dirname(temp));
-    strcpy(temp, path);
-    strcpy(bname, basename(temp));
-
-
-    
-}
-
 
 int main(int argc, char * argv[]){
 

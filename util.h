@@ -21,7 +21,7 @@ extern char *name[64];
 extern int n;
 extern int fd, dev;
 extern int nblocks, ninodes, bmap, imap, inode_start;
-extern char line[256], cmd[32], pathname[256];
+extern char line[256], cmd[32], pathname[256], bname[256], dname[256];
 
 int tst_bit(char *buf, int bit);
 int set_bit(char *buf, int bit);
@@ -39,9 +39,15 @@ int search(MINODE *mip, char *name);
 int getino(char *pathname);
 int findmyname_block(char *buf, int ino, char *name);
 int findmyname(MINODE *parent, u32 myino, char *myname);
-
-//int ialloc(int dev);
-//int balloc(int dev);
-//int decFreeInodes(int dev);
+int decFreeInodes(int dev);
+int decFreeblocks(int dev);
+int ialloc(int dev);
+int balloc(int dev);
+int incFreeInodes(int dev);
+int incFreeBlocks(int dev);
+int idealloc(int dev, int ino);
+int bdealloc(int dev, int bno);
+void truncate(MINODE *mip);
+void dir_base_name(char *path);
 
 #endif
