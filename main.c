@@ -704,7 +704,7 @@ int unlink(void)
 
 	pip->INODE.i_links_count--;
 	pip->dirty = 1;
-	pip->INODE.i_atime = (u32)time(NULL);
+	pip->INODE.i_atime = time(0L);
 	pip->INODE.i_mtime = pip->INODE.i_atime;
 
     iput(pip);
@@ -744,18 +744,26 @@ int mystat()
 
 int ch_mod()
 {
-	char path[256] = {0};
 	int mod, ino;
 
-	sscanf(pathname, "%d %s", &mod, path);
+	sscanf(pathname, "%o", &mod);
 
-	if((ino = getino(path)) == 0)
+	if((ino = getino(destname)) == 0)
 		return 0;
 
 	MINODE *mip = iget(dev, ino);
 
 	// clear current permissions
-	//mip->INODE.i_mode &= 
+	mip->INODE.i_mode &= 0777000;
+
+	// replace with new permissions
+	mip->INODE.i_mode |= mod;
+
+	// Set mtime and mark as dirty
+	mip->INODE.i_mtime = time(0L);
+	mip->dirty = 1;
+	iput(mip);
+	return 1;
 }
 
 int main(int argc, char * argv[]){
@@ -824,6 +832,10 @@ int main(int argc, char * argv[]){
 		else if(strcmp(cmd, "stat") == 0)
 		{
 			mystat();
+		}
+		else if(strcmp(cmd, "chmod") == 0)
+		{
+			ch_mod();
 		}
         else if(strcmp(cmd, "quit") == 0)
         {
