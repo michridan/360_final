@@ -428,6 +428,124 @@ void parse_line(char * line)
     strcpy(pathname, temp);
 }
 
+void truncate(MINODE *mip)
+{
+	int i, j, k, max = 256;
+	char buf[BLKSIZE], ibuf[BLKSIZE];
+	// Deallocate 12 direct blocks
+	for (i=0; i<12; i++)
+	{
+		if (mip->INODE.i_block[i]==0)
+			continue;
+
+		bdealloc(mip->dev, mip->INODE.i_block[i]);
+	}
+
+	// deallocate indirect blocks
+    if(mip->INODE.i_block[12] != 0)
+    {
+        get_block(mip->dev, mip->INODE.i_block[12], (char*)buf);
+        for(int i = 0; i < 256; i++)
+		{
+			if (buf[i * 4] == 0)
+				continue;
+
+			bdealloc(mip->dev, buf[i * 4]);
+		}
+    }
+
+	// deallocate double indirect blocks
+    if(mip->inode.i_block[13] != 0)
+    {
+        get_block(mip->dev, mip->inode.i_block[13], ibuf);
+        for(int i = 0; i < 256; i++)
+        {
+			if(ibuf[i * 4] == 0)
+				continue;
+
+            get_block(mip->dev, ibuf[i * 4], buf);
+            for(int j = 0; j < 256; j++)
+            {
+				if (buf[j * 4] == 0)
+					continue;
+
+				bdealloc(mip->dev, buf[j * 4]);
+            }
+        }
+	}
+}
+
+int unlink(void)
+{
+	if(!strcmp(pathname, ""))
+	{
+		printf("Usage: unlink [pathname]\n");
+		return -1;
+	}
+
+	int ino = getino(pathname), empty = 1, i;
+	
+	if(!ino)
+	{
+		printf("%s not found\n", pathname);
+		return -1;
+	}
+
+    MINODE *mip = iget(dev, ino), *pip;
+	DIR *dp;
+	char *cp, buf[BLKSIZE], temp[BLKSIZE], *dname = dirname(pathname), *name = basename(pathname);
+
+	if(running->uid != 0 && running->uid != mip->INODE.i_uid)
+	{
+		printf("You don't have permission to remove %s.\n", name);
+		iput(mip);
+		return -1;
+	}
+
+	// Check if REG or LNK
+	if(!S_ISREG(mip->INODE.i_mode) && !S_ISLNK(mip->INODE.i_mode))
+	{
+		printf("%s is not a regular file or symbolic link.\n", name);
+		iput(mip);
+		return -1;
+	}
+
+	// Decrement links_count and deallocate if zero
+	if(--mip->INODE.i_links_count == 0)
+	{
+		/*
+		// Deallocate its block and inode
+		for (i=0; i<12; i++)
+		{
+			if (mip->INODE.i_block[i]==0)
+				continue;
+
+			bdealloc(mip->dev, mip->INODE.i_block[i]);
+		}
+		*/
+		truncate(mip);
+		idealloc(mip->dev, mip->ino);
+	}
+    iput(mip);
+
+	// get parent's ino and Minode 
+	ino = getino(dname);
+	pip = iget(mip->dev, ino);
+
+	// remove child's entry from parent directory
+
+	rm_child(pip, name);
+
+	pip->INODE.i_links_count--;
+	pip->dirty = 1;
+	pip->INODE.i_atime = (u32)time(NULL);
+	pip->INODE.i_mtime = pip->INODE.i_atime;
+
+    iput(pip);
+
+    return 1;
+}
+
 int main(int argc, char * argv[]){
 
 
@@ -465,6 +583,10 @@ int main(int argc, char * argv[]){
 		else if(strcmp(cmd, "rmdir") == 0)
 		{
 			remove_dir();
+		}
+		else if(strcmp(cmd, "unlink") == 0)
+		{
+			unlink();
 		}
         else if(strcmp(cmd, "ls") == 0)
         {

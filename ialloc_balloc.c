@@ -38,6 +38,20 @@ int decFreeInodes(int dev)
   put_block(dev, 2, buf);
 }
 
+int decFreeInodes(int dev)
+{
+  char buf[BLKSIZE];
+
+  // dec free blocks count in SUPER and GD
+  get_block(dev, 1, buf);
+  ((SUPER*)buf)->s_free_blocks_count--;
+  put_block(dev, 1, buf);
+
+  get_block(dev, 2, buf);
+  ((GD*)buf)->bg_free_blocks_count--;
+  put_block(dev, 2, buf);
+}
+
 int ialloc(int dev)
 {
 
