@@ -8,7 +8,6 @@
 #include <libgen.h>
 #include <sys/stat.h>
 #include "level_1.h"
-#include "level_2.h"
 
 MINODE minode[NMINODE];
 MINODE *root;
@@ -18,11 +17,14 @@ PROC   proc[NPROC], *running;
 char gpath[256];   // hold tokenized strings
 char *name[64];    // token string pointers
 int  n;            // number of token strings 
+
+
+
+
 int fd, dev, d_start;
 int  nblocks, ninodes, bmap, imap, inode_start;
-char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256];
+char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256], store[256];
 OFT oft[NOFT];
-
 
 void mount_root(char * name)
 {
@@ -50,10 +52,7 @@ void mount_root(char * name)
     imap = g->bg_inode_bitmap; //gets list of the states of inodes (used = 1, free = 0)
     inode_start = g->bg_inode_table; //keeps track of every directory, regular file, symbolic 
     //link, or special file; their location, size, type and access rights
-	// Set root and cwds
-    root = iget(dev, 2);
-    proc[0].cwd = iget(dev, 2);
-    proc[1].cwd = iget(dev, 2);
+    root = proc[0].cwd = proc[1].cwd = iget(dev, 2); //sets root and cwd
 }
 
 void init()
@@ -92,8 +91,9 @@ int main(int argc, char * argv[]){
         printf("\n~>");
 
         fgets(input, 256, stdin);
-        input[strlen(input) - 1] = '\0';
         
+        input[strlen(input) - 1] = '\0';
+        printf("input: %s\n", input);
         //sscanf(input, "%s %s %s", cmd, pathname, destname);
         parse_line(input);
         //printf("pathname : %s\n", pathname);
@@ -123,16 +123,19 @@ int main(int argc, char * argv[]){
         {
             pwd();
         }
+
         else if(strcmp(cmd, "creat") == 0)
         {
             create_file();
         }
         else if(strcmp(cmd, "link") == 0)
         {
+
             mylink();
         }
         else if(strcmp(cmd, "unlink") == 0)
         {
+
             unlink();
         }
         else if(strcmp(cmd, "symlink") == 0)
@@ -149,17 +152,28 @@ int main(int argc, char * argv[]){
         }
         else if(strcmp(cmd, "stat") == 0)
         {
+
             mystat();
         }
-		else if(strcmp(cmd, "open") == 0)
-		{
-			myopen();
-		}
-		else if(strcmp(cmd, "close") == 0)
-		{
-			myclose();
-		}
-		else if(strcmp(cmd, "lseek") == 0)
+        else if(strcmp(cmd, "open") == 0)
+        {
+            myopen();
+        }
+        else if(strcmp(cmd, "close") == 0)
+        {
+
+            myclose();
+        }
+        else if(strcmp(cmd, "read") == 0)
+        {
+            read_file();
+        }
+         else if(strcmp(cmd, "write") == 0)
+        {
+
+            write_file();
+        }
+        else if(strcmp(cmd, "lseek") == 0)
 		{
 			mylseek();
 		}
@@ -183,7 +197,7 @@ int main(int argc, char * argv[]){
         }
         else if (strcmp(cmd, "help") == 0)
         {
-           printf("Available commands:\n{ cd | mkdir | rmdir | ls | pwd | creat | link | symlink | unlink | touch | stat | open | close | lseek | pfd | quit }\n");
+           printf("Available commands:\n{ cd | mkdir | rmdir | ls | pwd | creat | link | symlink | unlink | touch | stat | open | close | read | write | lseek | pfd | quit }\n");
         }
     
         else

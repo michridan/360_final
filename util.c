@@ -632,8 +632,6 @@ void truncate(MINODE *mip)
             }
         }
 	}
-	// Set the size to zero
-	mip->INODE.i_size = 0;
 }
 
 void dir_base_name(char *path)

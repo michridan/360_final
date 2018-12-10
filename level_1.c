@@ -9,7 +9,7 @@ extern char *name[64];
 extern int n;
 extern int fd, dev;
 extern int nblocks, ninodes, bmap, imap, inode_start;
-extern char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256];
+extern char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256], store[256];
 
 //start for level_1.c
 int mycd()
@@ -61,7 +61,7 @@ void pwd(void)
 }
 
 void mydirname(char * path){
-    char temp[128];
+    char * temp[128];
     strcpy(temp, path);
     strcpy(path, "");
     char * tokens[69];
@@ -85,7 +85,7 @@ void mydirname(char * path){
 
 void mybasename(char * path){
     //last token
-    char temp[128];
+    char * temp[128];
     strcpy(temp, path);
     char * tokens[69];
     int i = 0;
@@ -260,7 +260,7 @@ void file_ls(char * f_name, int ino)
         
         i -= 1;
     }
-    time_t t = (time_t)(mip->INODE.i_atime);
+    time_t t = (time_t)(mip->INODE.i_ctime);
     char temp[256];
     strcpy(temp, ctime(&t));
     //append null to end
@@ -328,9 +328,6 @@ int ls()
         //get ino for specified path
     }
 
-	if(!ino)
-		return 0;
-
     MINODE * mip = iget(dev, ino);
     //gets MINODE for specified path
     if(S_ISDIR(mip->INODE.i_mode))
@@ -352,6 +349,7 @@ int ls()
 void parse_line(char * line)
 {
     
+    strcpy(store, line);
     strcpy(cmd, "");
             
     strcpy(pathname, "");
@@ -361,12 +359,16 @@ void parse_line(char * line)
     strcpy(cmd, strtok(line, " \n"));
 
     char * temp = strtok(NULL, "\n ");
-
+    
     if (!temp)
     {
         return;
     }
+
     strcpy(pathname, temp);
+    temp += strlen(temp) + 1;
+    strcpy(store, temp);
+
     temp = strtok(NULL, "\n ");
 
     if (!temp)
@@ -440,7 +442,7 @@ int mycreate(MINODE *pip)
  
     MINODE * mip = iget(dev, ino); //in order to write contents into INODE in memory
     INODE * ip = &(mip->INODE);
-    *ip  = (INODE){.i_mode = 0x81A4, .i_uid = running->uid, .i_gid = running->gid, .i_size = BLKSIZE, .i_links_count = 1, .i_atime = time(0L), .i_ctime = time(0L), .i_mtime = time(0L), .i_blocks = 0, .i_block = {bno} };
+    *ip  = (INODE){.i_mode = 0x81A4, .i_uid = running->uid, .i_gid = running->gid, .i_size = 0, .i_links_count = 1, .i_atime = time(0L), .i_ctime = time(0L), .i_mtime = time(0L), .i_blocks = 0, .i_block = {bno} };
 
     //makes mip->INODE have DIR contents
     mip->dirty = 1;
@@ -586,6 +588,9 @@ void mysymlink(){
     iput(newmip);
 }
 
+
+
+
 int remove_dir(void)
 {
 	if(!strcmp(pathname, ""))
@@ -604,9 +609,7 @@ int remove_dir(void)
 
     MINODE *mip = iget(dev, ino), *pip;
 	DIR *dp;
-	char *cp, buf[BLKSIZE], temp[BLKSIZE];
-
-	dir_base_name(pathname);
+	char *cp, buf[BLKSIZE], temp[BLKSIZE], *dname = dirname(pathname), *name = basename(pathname);
 
 	if(running->uid != 0 && running->uid != mip->INODE.i_uid)
 	{
@@ -618,7 +621,7 @@ int remove_dir(void)
 	// Check if DIR
 	if(!S_ISDIR(mip->INODE.i_mode))
 	{
-		printf("%s is not a directory.\n", bname);
+		printf("%s is not a directory.\n", name);
 		iput(mip);
 		return -1;
 	}
@@ -650,7 +653,7 @@ int remove_dir(void)
 
 	if(!empty)
 	{
-		printf("%s is not empty.\n", bname);
+		printf("%s is not empty.\n", name);
 		iput(mip);
 		return -1;
 	}
@@ -662,7 +665,7 @@ int remove_dir(void)
 		// if mip has any children, it will fail as being empty
 		if(mip == proc[i].cwd)
 		{
-			printf("%s is in use.\n", bname);
+			printf("%s is in use.\n", name);
 			iput(mip);
 			return -1;
 		}
@@ -686,7 +689,7 @@ int remove_dir(void)
 
 	// remove child's entry from parent directory
 
-	rm_child(pip, bname);
+	rm_child(pip, name);
 
 	pip->INODE.i_links_count--;
 	pip->dirty = 1;

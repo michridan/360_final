@@ -9,8 +9,8 @@ extern char *name[64];
 extern int n;
 extern int fd, dev;
 extern int nblocks, ninodes, bmap, imap, inode_start;
-extern char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256];
-
+extern char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256], store[256];
+extern OFT oft[NOFT];
 
 ///*** Level 2 functions ///***
 
@@ -184,7 +184,7 @@ int myclose()
 	return 0;
 }
 
-int lseek(int fd, int position)
+int mylseek()
 {
 	if(!isdigit(pathname[0]) || !isdigit(destname[0]))
 	{
@@ -274,6 +274,7 @@ void write_file()
 
     //ask for a fd   and   a text string to write;
     int fd = atoi(pathname);
+    printf("fd: %d\n", fd);
     //verify fd is indeed opened for WR or RW or APPEND mode
     if(running->fd[fd]->refCount == 0)
     {
@@ -287,7 +288,7 @@ void write_file()
     }
     //copy the text string into a buf[] and get its length as nbytes.
     char buffer[256];
-    strcpy(buffer, destname);
+    strcpy(buffer, store);
     mywrite(fd, buffer, strlen(buffer));
 }
 
@@ -489,5 +490,7 @@ int myread(int fd, char buf[], int nbytes)
     printf("myread: read %d char from file descriptor %d\n", count, fd);
     return count; // count is the actual number of bytes read
 }
+
+
 
 ///*** End level 2 functions ///***
