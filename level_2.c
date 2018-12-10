@@ -24,12 +24,11 @@ int open_file(int mode)
     if(!ino)
     {
         printf("error: file %s does not exist\n");
-		return -1;
     }
     MINODE * mip = iget(dev, ino);
     if(!S_ISREG(mip->INODE.i_mode))
     {
-        printf("error: %s is not a regular file\n")
+        printf("error: %s is not a refular file\n")
         return -1;
     }
     while (i < NFD)
@@ -45,6 +44,7 @@ int open_file(int mode)
     i = 0;
     while(i < NFD)
     {
+        
         if(running.fd[i].refCount == 0)
         {
             // allocate a FREE OpenFileTable (OFT) and fill in values
@@ -63,6 +63,7 @@ int open_file(int mode)
                     break;
                     n+=1;
                 }
+
             }
             //update INODE's time field
             time_t t = time(0L);
@@ -112,7 +113,7 @@ void myopen()
     fd = open_file(open_mode);
     if(fd >= 0)
     {
-        if(fd < NFD)
+        if(fd < 10)
         {
             printf("file %s opend\n");
         }
@@ -176,4 +177,40 @@ int pfd()
 	}
 	putchar('\n');
 }
+
+void dup(int fd)
+{
+    if(running->fd[fd].refCount <= 0)
+    {
+        printf("error: file descriptor not opened\n");
+        return;
+    }
+    else
+    {
+        int i = 0;
+        while(running->fd[i])
+        {
+            //get to FIRST empty fd[ ] slot
+            i += 1;
+        }
+        //duplicates (copy) fd[fd] into FIRST empty fd[ ] slot;
+        running->fd[i].mode = runningfd[fd].mode;
+        running->fd[i].refCount = runningfd[fd].refCount;
+        running->fd[i].mptr = runningfd[fd].mptr;
+        running->fd[i].offset = runningfd[fd].offset;
+        //increment OFT's refCount by 1;
+        running->fd[fd].refCount +=1;
+    }
+}
+
+void dup2(int fd, int gd)
+{
+    close_file(gd);
+    running->fd[gd].mode = runningfd[fd].mode;
+    running->fd[gd].refCount = runningfd[fd].refCount;
+    running->fd[gd].mptr = runningfd[fd].mptr;
+    running->fd[gd].offset = runningfd[fd].offset;
+
+}
+
 ///*** End level 2 functions ///***
