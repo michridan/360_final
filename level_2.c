@@ -56,6 +56,7 @@ int open_file(int mode)
             {
                 // W: truncate file to 0 size
                 truncate(mip);
+                mip->INODE.i_size = 0;
             }
             int n = 0;
             while(n < NFD)
