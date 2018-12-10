@@ -181,6 +181,10 @@ int main(int argc, char * argv[]){
 		{
 			pfd();
 		}
+		else if(strcmp(cmd, "cat") == 0)
+		{
+			mycat();
+		}
         else if(strcmp(cmd, "quit") == 0)
         {   
             int i = 0;

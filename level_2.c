@@ -169,6 +169,7 @@ int close_file(int fd)
 
 	return 0;
 }
+
 int myclose()
 {
 	if(!isdigit(pathname[0]))
@@ -491,6 +492,19 @@ int myread(int fd, char buf[], int nbytes)
     return count; // count is the actual number of bytes read
 }
 
+int mycat()
+{
+	int fd = open_file(0), n = 0, size = running->fd[fd]->mptr->INODE.i_size;
+	char buf[size + 1];
 
+	if(fd)
+	{
+		n = myread(fd, buf, size);
+		buf[n] = 0;
+		printf(buf);
+	}
+
+	return n;
+}
 
 ///*** End level 2 functions ///***

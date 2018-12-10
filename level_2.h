@@ -17,3 +17,8 @@ int mylseek();
 int pfd();
 void dup(int fd);
 void dup2(int fd, int gd);
+void zero_block(int dev, int blk);
+void write_file();
+int mywrite(int fd, char buf[], int nbytes);
+int read_file();
+int mycat();
