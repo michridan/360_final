@@ -18,6 +18,8 @@ int open_file(int mode)
 {
     int i = 0;
     //gets ino for file to opne
+
+
     int ino = getino(pathname);
     if(!ino)
     {
@@ -29,9 +31,9 @@ int open_file(int mode)
         printf("error: %s is not a refular file\n")
         return -1;
     }
-    while (i < 64)
+    while (i < NFD)
     {
-        if(oft[i].mptr == mip && oft[i].mode != 0)
+        if(running.fd[i].mptr == mip && running.fd[i].mode != 0)
         {
             //Already open but not for read
             printf("error: file %s is already open\n", pathname);
@@ -40,30 +42,41 @@ int open_file(int mode)
         i+=1;
     }
     i = 0;
-    while(i < 64)
+    while(i < NFD)
     {
-        if(oft[i].refCount == 0)
+        
+        if(running.fd[i].refCount == 0)
         {
-            oft[i] = (OFT){.mode = mode, .refCount = 1, .mptr = mip, .offset = (mode == 3 ? mip->inode.i_size : 0)};
+            // allocate a FREE OpenFileTable (OFT) and fill in values
+            running.fd[i] = (OFT){.mode = mode, .refCount = 1, .mptr = mip, .offset = (mode == 3 ? mip->inode.i_size : 0)};
             if(mode == 1)
             {
+                // W: truncate file to 0 size
+                truncate(mip);
                 mip->INODE.i_size = 0;
             }
             int n = 0;
             while(n < 10)
             {
-                if(!running->fd[n];)
-                break;
-                n+=1;
+                if(!running->fd[n])
+                {
+                    //get to first null fd
+                    break;
+                    n+=1;
+                }
+
             }
+            //update INODE's time field
             time_t t = time(0L);
+            //for R: touch atime. 
             mip->INODE.i_atime = t;
             if(mode != 0)
             {
+                //for W|RW|APPEND mode : touch atime and mtime
                 mip->INODE.i_mtime = t;
             }
             mip->dirty = 1;
-            return i;
+            return i;//return i as the file descriptor
 
         }
         i+=1;
@@ -106,6 +119,11 @@ void myopen()
             printf("file %s opend\n");
         }
     }
+}
+
+int myclose()
+{
+
 }
 
 ///*** End level 2 functions ///***
