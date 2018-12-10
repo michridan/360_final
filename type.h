@@ -22,6 +22,7 @@ DIR   *dp;
 
 #define BLKSIZE  1024
 #define NMINODE    64
+#define NOFT	   64
 #define NFD        16
 #define NMOUNT      4
 #define NPROC       2

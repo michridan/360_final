@@ -17,11 +17,11 @@ extern OFT oft[NOFT];
 
 int open_file(int mode)
 {
-    int i = 0;
+    int i = 0, j = 0, success = 0;
     //gets ino for file to opne
 
-
     int ino = getino(pathname);
+	OFT *file = 0;
     if(!ino)
     {
         printf("error: file %s does not exist\n", pathname);
@@ -29,44 +29,63 @@ int open_file(int mode)
     MINODE * mip = iget(dev, ino);
     if(!S_ISREG(mip->INODE.i_mode))
     {
-        printf("error: %s is not a regular file\n");
+        printf("error: %s is not a regular file\n", pathname);
         return -1;
     }
     while (i < NOFT)
     {
-        if(oft[i].refCount != 0 && oft[i].mptr == mip && oft[i].mode != 0)
+        if(oft[i].refCount != 0 && oft[i].mptr->ino == mip->ino)
         {
-            //Already open but not for read
-            printf("error: file %s is already open\n", pathname);
-            return -1;
+			if(oft[i].mode != 0 || mode != 0)
+			{
+				//Already open but not for read
+				printf("error: file %s is already open with a conflicting mode\n", pathname);
+				return -1;
+			}
+			else
+			{
+				// File already opened, but both will be for read
+				file = &oft[i];
+			}
         }
         i+=1;
     }
     i = 0;
-    while(i < NFD)
+    while(i < NOFT)
     {
-        if(running->fd[i] == 0)
+        // allocate a FREE OpenFileTable (OFT) and fill in values
+        if(oft[i].refCount == 0)
         {
-            // allocate a FREE OpenFileTable (OFT) and fill in values
-            running->fd[i]->mode = mode;
-            running->fd[i]->refCount = 1;
-            running->fd[i]->mptr = mip;
-            running->fd[i]->offset = (mode == 3 ? mip->INODE.i_size : 0);
+            oft[i].mode = mode;
+            oft[i].refCount = 1;
+            oft[i].mptr = mip;
+            oft[i].offset = (mode == 3 ? mip->INODE.i_size : 0);
+			file = &oft[i];
+		}
+		if(file)
+		{
+			// Add file to the process
+            while(j < NFD && !success)
+            {
+                if(!running->fd[j])
+                {
+					running->fd[j] = file;
+					success = 1;
+                    break;
+                }
+                j++;
+            }
+			if(!success)
+			{
+				printf("current process has too many files open\n");
+				return -1;
+			}
+
+			// Prepare the inode for the format it's being opened in
             if(mode == 1)
             {
                 // W: truncate file to 0 size
                 truncate(mip);
-                mip->INODE.i_size = 0;
-            }
-            int n = 0;
-            while(n < NFD)
-            {
-                if(!running->fd[n])
-                {
-                    //get to first null fd
-                    break;
-                }
-                n+=1;
             }
             //update INODE's time field
             time_t t = time(0L);
@@ -78,7 +97,7 @@ int open_file(int mode)
                 mip->INODE.i_mtime = t;
             }
             mip->dirty = 1;
-            return i;//return i as the file descriptor
+            return j;//return j as the file descriptor
 
         }
         i+=1;
@@ -116,9 +135,9 @@ void myopen()
     fd = open_file(open_mode);
     if(fd >= 0)
     {
-        if(fd < 10)
+        if(fd < NFD)
         {
-            printf("file %s opend\n", pathname);
+            printf("file %s opend with fd %d\n", pathname, fd);
         }
     }
 }
@@ -153,6 +172,12 @@ int close_file(int fd)
 
 int myclose()
 {
+	if(!isdigit(pathname[0]))
+	{
+		printf("Usage: close [FILE DESCRIPTOR]\n");
+		return -1;
+	}
+
 	int fd = atoi(pathname);
 	
 	close_file(fd);
@@ -162,10 +187,19 @@ int myclose()
 
 int mylseek()
 {
+	if(!isdigit(pathname[0]) || !isdigit(destname[0]))
+	{
+		printf("Usage: lseek [FILE DESCRIPTOR] [POSITION]\n");
+		return -1;
+	}
+
 	int fd = atoi(pathname), position = atoi(destname);
 
 	if(fd < 0 || fd > NFD)
+	{
+		printf("Offset out of range\n");
 		return -1;
+	}
 
 	OFT *file = running->fd[fd];
 	int old_offset = file->offset;

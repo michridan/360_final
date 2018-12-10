@@ -7,6 +7,7 @@
 #include <time.h>
 #include <libgen.h>
 #include <sys/stat.h>
+#include <ctype.h>
 
 int open_file(int mode);
 void myopen();

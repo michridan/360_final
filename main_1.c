@@ -21,6 +21,7 @@ int  n;            // number of token strings
 int fd, dev, d_start;
 int  nblocks, ninodes, bmap, imap, inode_start;
 char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256];
+OFT oft[NOFT];
 
 
 void mount_root(char * name)
