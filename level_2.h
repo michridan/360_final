@@ -10,3 +10,9 @@
 
 int open_file(int mode);
 void myopen();
+int close_file(int fd);
+int myclose();
+int mylseek();
+int pfd();
+void dup(int fd);
+void dup2(int fd, int gd);

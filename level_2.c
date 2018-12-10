@@ -10,6 +10,7 @@ extern int n;
 extern int fd, dev;
 extern int nblocks, ninodes, bmap, imap, inode_start;
 extern char line[256], cmd[32], pathname[256], dname[256], bname[256], destname[256];
+extern OFT oft[NOFT];
 
 
 ///*** Level 2 functions ///***
@@ -23,17 +24,17 @@ int open_file(int mode)
     int ino = getino(pathname);
     if(!ino)
     {
-        printf("error: file %s does not exist\n");
+        printf("error: file %s does not exist\n", pathname);
     }
     MINODE * mip = iget(dev, ino);
     if(!S_ISREG(mip->INODE.i_mode))
     {
-        printf("error: %s is not a refular file\n")
+        printf("error: %s is not a regular file\n");
         return -1;
     }
-    while (i < NFD)
+    while (i < NOFT)
     {
-        if(running.fd[i].mptr == mip && running.fd[i].mode != 0)
+        if(oft[i].refCount != 0 && oft[i].mptr == mip && oft[i].mode != 0)
         {
             //Already open but not for read
             printf("error: file %s is already open\n", pathname);
@@ -44,26 +45,27 @@ int open_file(int mode)
     i = 0;
     while(i < NFD)
     {
-        
-        if(running.fd[i].refCount == 0)
+        if(running->fd[i] == 0)
         {
             // allocate a FREE OpenFileTable (OFT) and fill in values
-            running.fd[i] = (OFT){.mode = mode, .refCount = 1, .mptr = mip, .offset = (mode == 3 ? mip->INODE.i_size : 0)};
+            running->fd[i]->mode = mode;
+            running->fd[i]->refCount = 1;
+            running->fd[i]->mptr = mip;
+            running->fd[i]->offset = (mode == 3 ? mip->INODE.i_size : 0);
             if(mode == 1)
             {
                 // W: truncate file to 0 size
                 truncate(mip);
             }
             int n = 0;
-            while(n < 10)
+            while(n < NFD)
             {
                 if(!running->fd[n])
                 {
                     //get to first null fd
                     break;
-                    n+=1;
                 }
-
+                n+=1;
             }
             //update INODE's time field
             time_t t = time(0L);
@@ -115,12 +117,12 @@ void myopen()
     {
         if(fd < 10)
         {
-            printf("file %s opend\n");
+            printf("file %s opend\n", pathname);
         }
     }
 }
 
-int myclose(int fd)
+int close_file(int fd)
 {
 	if(fd < 0 || fd >= NFD)
 	{
@@ -141,22 +143,33 @@ int myclose(int fd)
 
 	if(--oftp->refCount == 0)
 	{
-		oftp->inodeptr->dirty = 1;
-		iput(oftp->inodeptr);
+		oftp->mptr->dirty = 1;
+		iput(oftp->mptr);
 	}
 
 	return 0;
 }
 
-int lseek(int fd, int position)
+int myclose()
 {
+	int fd = atoi(pathname);
+	
+	close_file(fd);
+
+	return 0;
+}
+
+int mylseek()
+{
+	int fd = atoi(pathname), position = atoi(destname);
+
 	if(fd < 0 || fd > NFD)
 		return -1;
 
 	OFT *file = running->fd[fd];
 	int old_offset = file->offset;
 	
-	if(position >= 0 && position < file->inodeptr->INODE.i_size)
+	if(position >= 0 && position < file->mptr->INODE.i_size)
 	{
 		file->offset = position;
 	}
@@ -167,20 +180,20 @@ int lseek(int fd, int position)
 int pfd()
 {
 	int i;
-	char *modes[4] {"READ", "WRITE", "R/W", "APPEND"};
+	char *modes[4] = {"READ", "WRITE", "R/W", "APPEND"};
 	printf("fd\tmode\toffset\tINODE\n");
 
 	for(i = 0; i < NFD; i++)
 	{
 		if(running->fd[i])
-			printf("%d\t%s\t%d\t[%d, %d]\n", i, modes[running->fd[i]->mode], running->fd[i]->offset, running->fd[i]->inodeptr->dev, running->fd[i]->inodeptr->ino);
+			printf("%d\t%s\t%d\t[%d, %d]\n", i, modes[running->fd[i]->mode], running->fd[i]->offset, running->fd[i]->mptr->dev, running->fd[i]->mptr->ino);
 	}
 	putchar('\n');
 }
 
 void dup(int fd)
 {
-    if(running->fd[fd].refCount <= 0)
+    if(running->fd[fd]->refCount <= 0)
     {
         printf("error: file descriptor not opened\n");
         return;
@@ -194,23 +207,22 @@ void dup(int fd)
             i += 1;
         }
         //duplicates (copy) fd[fd] into FIRST empty fd[ ] slot;
-        running->fd[i].mode = runningfd[fd].mode;
-        running->fd[i].refCount = runningfd[fd].refCount;
-        running->fd[i].mptr = runningfd[fd].mptr;
-        running->fd[i].offset = runningfd[fd].offset;
+        running->fd[i]->mode = running->fd[fd]->mode;
+        running->fd[i]->refCount = running->fd[fd]->refCount;
+        running->fd[i]->mptr = running->fd[fd]->mptr;
+        running->fd[i]->offset = running->fd[fd]->offset;
         //increment OFT's refCount by 1;
-        running->fd[fd].refCount +=1;
+        running->fd[fd]->refCount +=1;
     }
 }
 
 void dup2(int fd, int gd)
 {
     close_file(gd);
-    running->fd[gd].mode = runningfd[fd].mode;
-    running->fd[gd].refCount = runningfd[fd].refCount;
-    running->fd[gd].mptr = runningfd[fd].mptr;
-    running->fd[gd].offset = runningfd[fd].offset;
-
+    running->fd[gd]->mode = running->fd[fd]->mode;
+    running->fd[gd]->refCount = running->fd[fd]->refCount;
+    running->fd[gd]->mptr = running->fd[fd]->mptr;
+    running->fd[gd]->offset = running->fd[fd]->offset;
 }
 
 ///*** End level 2 functions ///***

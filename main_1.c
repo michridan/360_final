@@ -8,6 +8,7 @@
 #include <libgen.h>
 #include <sys/stat.h>
 #include "level_1.h"
+#include "level_2.h"
 
 MINODE minode[NMINODE];
 MINODE *root;
@@ -121,19 +122,16 @@ int main(int argc, char * argv[]){
         {
             pwd();
         }
-
         else if(strcmp(cmd, "creat") == 0)
         {
             create_file();
         }
         else if(strcmp(cmd, "link") == 0)
         {
-
             mylink();
         }
         else if(strcmp(cmd, "unlink") == 0)
         {
-
             unlink();
         }
         else if(strcmp(cmd, "symlink") == 0)
@@ -150,9 +148,24 @@ int main(int argc, char * argv[]){
         }
         else if(strcmp(cmd, "stat") == 0)
         {
-
             mystat();
         }
+		else if(strcmp(cmd, "open") == 0)
+		{
+			myopen();
+		}
+		else if(strcmp(cmd, "close") == 0)
+		{
+			myclose();
+		}
+		else if(strcmp(cmd, "lseek") == 0)
+		{
+			mylseek();
+		}
+		else if(strcmp(cmd, "pfd") == 0)
+		{
+			pfd();
+		}
         else if(strcmp(cmd, "quit") == 0)
         {   
             int i = 0;
@@ -169,7 +182,7 @@ int main(int argc, char * argv[]){
         }
         else if (strcmp(cmd, "help") == 0)
         {
-           printf("Available commands:\n{ cd | mkdir | rmdir | ls | pwd | creat | link | symlink | unlink | touch | stat | quit }\n");
+           printf("Available commands:\n{ cd | mkdir | rmdir | ls | pwd | creat | link | symlink | unlink | touch | stat | open | close | lseek | pfd | quit }\n");
         }
     
         else
