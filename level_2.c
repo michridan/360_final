@@ -18,6 +18,8 @@ int open_file(int mode)
 {
     int i = 0;
     //gets ino for file to opne
+
+
     int ino = getino(pathname);
     if(!ino)
     {
@@ -32,7 +34,7 @@ int open_file(int mode)
     }
     while (i < NFD)
     {
-        if(running->fd[i].mptr == mip && running->fd[i].mode != 0)
+        if(running.fd[i].mptr == mip && running.fd[i].mode != 0)
         {
             //Already open but not for read
             printf("error: file %s is already open\n", pathname);
@@ -45,28 +47,35 @@ int open_file(int mode)
     {
         if(running.fd[i].refCount == 0)
         {
+            // allocate a FREE OpenFileTable (OFT) and fill in values
             running.fd[i] = (OFT){.mode = mode, .refCount = 1, .mptr = mip, .offset = (mode == 3 ? mip->inode.i_size : 0)};
             if(mode == 1)
             {
-				truncate(mip);
+                // W: truncate file to 0 size
+                truncate(mip);
+                mip->INODE.i_size = 0;
             }
             int n = 0;
             while(n < 10)
             {
                 if(!running->fd[n])
-				{
-					break;
-					n+=1;
-				}
+                {
+                    //get to first null fd
+                    break;
+                    n+=1;
+                }
             }
+            //update INODE's time field
             time_t t = time(0L);
+            //for R: touch atime. 
             mip->INODE.i_atime = t;
             if(mode != 0)
             {
+                //for W|RW|APPEND mode : touch atime and mtime
                 mip->INODE.i_mtime = t;
             }
             mip->dirty = 1;
-            return i;
+            return i;//return i as the file descriptor
 
         }
         i+=1;
