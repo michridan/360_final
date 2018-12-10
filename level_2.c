@@ -48,11 +48,12 @@ int open_file(int mode)
         if(running.fd[i].refCount == 0)
         {
             // allocate a FREE OpenFileTable (OFT) and fill in values
-            running.fd[i] = (OFT){.mode = mode, .refCount = 1, .mptr = mip, .offset = (mode == 3 ? mip->INODE.i_size : 0)};
+            running.fd[i] = (OFT){.mode = mode, .refCount = 1, .mptr = mip, .offset = (mode == 3 ? mip->inode.i_size : 0)};
             if(mode == 1)
             {
                 // W: truncate file to 0 size
                 truncate(mip);
+                mip->INODE.i_size = 0;
             }
             int n = 0;
             while(n < 10)
@@ -146,36 +147,6 @@ int myclose(int fd)
 	}
 
 	return 0;
-}
-
-int lseek(int fd, int position)
-{
-	if(fd < 0 || fd > NFD)
-		return -1;
-
-	OFT *file = running->fd[fd];
-	int old_offset = file->offset;
-	
-	if(position >= 0 && position < file->inodeptr->INODE.i_size)
-	{
-		file->offset = position;
-	}
-
-	return old_offset;
-}
-
-int pfd()
-{
-	int i;
-	char *modes[4] {"READ", "WRITE", "R/W", "APPEND"};
-	printf("fd\tmode\toffset\tINODE\n");
-
-	for(i = 0; i < NFD; i++)
-	{
-		if(running->fd[i])
-			printf("%d\t%s\t%d\t[%d, %d]\n", i, modes[running->fd[i]->mode], running->fd[i]->offset, running->fd[i]->inodeptr->dev, running->fd[i]->inodeptr->ino);
-	}
-	putchar('\n');
 }
 
 void dup(int fd)
